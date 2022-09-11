@@ -1,0 +1,10 @@
+server:
+  port: 8080
+
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000   # 设置Feign客户端连接提供者的超时时限
+        readTimeout: 5000  # 设置Feign从请求发出到接收到提供者的响应，这段时间的超时时限
+    url: http://127.0.0.1:8081   #客户端提供feign服务ip

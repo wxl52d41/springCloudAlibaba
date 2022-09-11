@@ -1,0 +1,9 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: feign-nacos-provider-modules # 服务名
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848   # nacos discovery地址

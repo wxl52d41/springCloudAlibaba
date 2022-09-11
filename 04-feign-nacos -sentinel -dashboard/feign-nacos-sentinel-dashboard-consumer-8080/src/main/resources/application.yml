@@ -1,0 +1,30 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: feign-nacos-consumer  # 微服务名称
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848   # nacos discovery地址
+    sentinel:
+      transport:
+        dashboard: localhost:8888  # Sentinel客户端地址
+        port: 8197 # 服务和客户端通信端口，在客户端上配置会生效到服务上需要发送请求
+      eager: true # 开启配置后立即生效
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000   # 设置Feign客户端连接提供者的超时时限
+        readTimeout: 5000  # 设置Feign从请求发出到接收到提供者的响应，这段时间的超时时限
+  sentinel: # 开启sentinel对feign的支持
+    enabled: true
+
+# 配置提供者负载均衡策略
+#feign-nacos-provider-modules:  #提供者服务名称
+#  ribbon: # 指定要使用的负载均衡策略
+#    NFLoadBalancerRuleClassName: com.netflix.loadbalancer.RandomRule #采用随机策略
+logging:
+  level:
+    com.example: debug #设置日志级别为debug

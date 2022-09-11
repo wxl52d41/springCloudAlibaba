@@ -1,0 +1,5 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: abcmsc-provider-depart # 服务名

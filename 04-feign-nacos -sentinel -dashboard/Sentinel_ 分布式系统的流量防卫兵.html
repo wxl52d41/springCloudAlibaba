@@ -1,0 +1,413 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentinel: 分布式系统的流量防卫兵</title>
+  <link rel="stylesheet" href="https://stackedit.io/style.css" />
+</head>
+
+<body class="stackedit">
+  <div class="stackedit__html"><p></p><div class="toc"><h3>Sentinel: 分布式系统的流量防卫兵</h3><ul><li><a href="#1_Sentinel_2">1 Sentinel简介</a></li><ul><li><a href="#11_4">1.1官方介绍</a></li><li><a href="#12__17">1.2 总结</a></li></ul><li><a href="#2__20">2 服务降级</a></li><ul><li><a href="#21__23">2.1 降级实现方式分类</a></li><li><a href="#22_Sentinel__30">2.2 Sentinel 式方法级降级</a></li><ul><li><a href="#1_32">(1)添加依赖</a></li><li><a href="#2__43">(2) 修改处理器类</a></li><li><a href="#3__62">(3) 测试</a></li></ul><li><a href="#23_Sentinel__73">2.3 Sentinel 式类级降级</a></li><ul><li><a href="#1__75">(1) 定义降级类</a></li><li><a href="#2__DepartController__98">(2) 修改 DepartController 处理器</a></li><li><a href="#3_117">(3)测试</a></li></ul><li><a href="#24_Feign__121">2.4 Feign 式类级降级</a></li><ul><li><a href="#1_122">(1)添加依赖</a></li><li><a href="#2__133">(2) 修改配置文件</a></li><li><a href="#3__140">(3) 定义降级类</a></li><li><a href="#4feign_184">(4)修改feign接口</a></li><li><a href="#5_208">(5)测试</a></li></ul></ul><li><a href="#3_Sentinel_Dashboard_212">3 Sentinel Dashboard</a></li><ul><li><a href="#31__215">3.1 简介</a></li><li><a href="#32__228">3.2 下载</a></li><li><a href="#33__236">3.3 启动</a></li><li><a href="#34__248">3.4 访问</a></li></ul><li><a href="#4__254">4 服务熔断</a></li><ul><li><a href="#41_256">4.1熔断概念</a></li><li><a href="#42__270">4.2 动态设置</a></li><ul><li><a href="#421__273">4.2.1 修改处理器类</a></li><li><a href="#422__287">4.2.2 修改配置文件</a></li><li><a href="#423_sentinel__307">4.2.3 在sentinel 客户端设置降级规则</a></li><li><a href="#424__311">4.2.4 修改提供者工程</a></li><li><a href="#425__328">4.2.5 测试</a></li></ul><li><a href="#43__343">4.3 熔断策略</a></li><ul><li><a href="#1_RT_345">（1）响应时间 RT</a></li><li><a href="#2_358">（2）异常比</a></li><li><a href="#3_368">（3）异常数</a></li></ul><li><a href="#44__378">4.4 代码设置</a></li><ul><li><a href="#_382">添加降级规则配置类</a></li><li><a href="#_462">使用降级</a></li></ul></ul></ul></div><br>
+官方文档<p></p>
+<h1><a id="1_Sentinel_2"></a>1 Sentinel简介</h1>
+<p><a href="https://github.com/alibaba/Sentinel/wiki/%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8#%E7%AE%80%E4%BB%8B">官方文档</a></p>
+<h2><a id="11_4"></a>1.1官方介绍</h2>
+<p><strong><a href="https://github.com/alibaba/Sentinel/wiki/%E4%BB%8B%E7%BB%8D">Sentinel 是什么？</a></strong><br>
+随着微服务的流行，服务和服务之间的稳定性变得越来越重要。Sentinel 以流量为切入点，从流量控制、流量路由、熔断降级、系统自适应过载保护、热点流量防护等多个维度保护服务的稳定性。</p>
+<p><strong>Sentinel 具有以下特征:</strong></p>
+<ul>
+<li>丰富的应用场景：Sentinel 承接了阿里巴巴近 10年的双十一大促流量的核心场景，例如秒杀（即突发流量控制在系统容量可以承受的范围）、消息削峰填谷、集群流量控制、实时熔断下游不可用应用等。</li>
+<li>完备的实时监控：Sentinel 同时提供实时的监控功能。您可以在控制台中看到接入应用的单台机器秒级数据，甚至 500<br>
+台以下规模的集群的汇总运行情况。</li>
+<li>广泛的开源生态：Sentinel 提供开箱即用的与其它开源框架/库的整合模块，例如与 Spring Cloud、Apache Dubbo、gRPC、Quarkus 的整合。您只需要引入相应的依赖并进行简单的配置即可快速地接入 Sentinel。同时Sentinel 提供 Java/Go/C++ 等多语言的原生实现。</li>
+<li>完善的 SPI 扩展机制：Sentinel 提供简单易用、完善的 SPI<br>
+扩展接口。您可以通过实现扩展接口来快速地定制逻辑。例如定制规则管理、适配动态数据源等</li>
+</ul>
+<h2><a id="12__17"></a>1.2 总结</h2>
+<p>Sentinel 是分布式系统的防御系统。以流量为切入点，通过动态设置的流量控制、服务熔断等手段达到保护系统的目的，通过服务降级增强服务被拒用户的体验。</p>
+<h1><a id="2__20"></a>2 服务降级</h1>
+<p>服务降级是一种增强用户体验的方式。当用户的请求由于各种原因被拒后，系统返回一个事先设定好的、用户可以接受的，但又令用户并不满意的结果。这种请求处理方式称为服 务降级。</p>
+<h2><a id="21__23"></a>2.1 降级实现方式分类</h2>
+<p>对于  Sentinel，服务降级的实现方式根据消费者类型的不同，其支持两种方式：</p>
+<ul>
+<li><strong>Sentinel 式降级</strong>：通过 Sentinel 自身的 API 实现的降级方式，适用于任意消费者类型。而根据降级方法应用范围、定义位置及可维护性的不同，又可分为两种：<br>
+<mark>方法级降级</mark>：降级方法与原方法定义在同一个类中，其仅是本类中的原方法可以使用。<br>
+<mark>类级降级</mark>：降级方法定义在专门的一个类中，其是一个可以被共享的降级类。该类中的所有方法均为降级方法，所以便于维护与管理。</li>
+<li><strong>Feign 式降级</strong>：通过  OpenFeign 的  API 实现的降级方式，仅适用于  Feign 客户端的消费者类型。其只有类级降级方式。</li>
+</ul>
+<h2><a id="22_Sentinel__30"></a>2.2 Sentinel 式方法级降级</h2>
+<h3><a id="1_32"></a>(1)添加依赖</h3>
+<p>在原有的feign-nacos项目中添加依赖</p>
+<pre><code class="prism language-xml">  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">&gt;</span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">&gt;</span></span>com.alibaba.cloud<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">&gt;</span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">&gt;</span></span>spring-cloud-starter-alibaba-sentinel<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">&gt;</span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>version</span><span class="token punctuation">&gt;</span></span>2.2.1.RELEASE<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>version</span><span class="token punctuation">&gt;</span></span>
+      <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">&gt;</span></span>
+</code></pre>
+<h3><a id="2__43"></a>(2) 修改处理器类</h3>
+<pre><code class="prism language-java">    <span class="token comment">/**
+     * 定义了降级
+     */</span>
+    <span class="token annotation punctuation">@SentinelResource</span><span class="token punctuation">(</span>fallback <span class="token operator">=</span> <span class="token string">"getHandleFallback"</span><span class="token punctuation">)</span>
+    <span class="token annotation punctuation">@GetMapping</span><span class="token punctuation">(</span><span class="token string">"/get/{id}"</span><span class="token punctuation">)</span>
+    <span class="token keyword">public</span> <span class="token class-name">DepartVO</span> <span class="token function">getHandle</span><span class="token punctuation">(</span><span class="token annotation punctuation">@PathVariable</span><span class="token punctuation">(</span><span class="token string">"id"</span><span class="token punctuation">)</span> <span class="token keyword">int</span> id<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> departService<span class="token punctuation">.</span><span class="token function">getDepartById</span><span class="token punctuation">(</span>id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token keyword">public</span> <span class="token class-name">DepartVO</span> <span class="token function">getHandleFallback</span><span class="token punctuation">(</span><span class="token keyword">int</span> id<span class="token punctuation">,</span> <span class="token class-name">Throwable</span> e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token class-name">DepartVO</span> departVO <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">DepartVO</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        departVO<span class="token punctuation">.</span><span class="token function">setId</span><span class="token punctuation">(</span>id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        departVO<span class="token punctuation">.</span><span class="token function">setName</span><span class="token punctuation">(</span><span class="token string">"degrade-method-"</span> <span class="token operator">+</span> id <span class="token operator">+</span> <span class="token string">"-"</span> <span class="token operator">+</span> e<span class="token punctuation">.</span><span class="token function">getMessage</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> departVO<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+</code></pre>
+<h3><a id="3__62"></a>(3) 测试</h3>
+<ol>
+<li>只启动消费者，访问接口发现走了降级方法。</li>
+</ol>
+<p><img src="https://img-blog.csdnimg.cn/1ca5e50002cd4b6a8a994dcd495e3768.png" alt="在这里插入图片描述"></p>
+<ol start="2">
+<li>启动消费者和生产者无异常，正常访问接口</li>
+<li>在消费者端模拟异常并启动，访问接口发现走了降级方法。<br>
+<img src="https://img-blog.csdnimg.cn/44d4878ed3c24700ab1494d23f17f420.png" alt="在这里插入图片描述"><br>
+思考了一下，这里是为了模拟降级服务而简单的处理。实际中应该会具体实现降级业务，针对异常做些处理。</li>
+</ol>
+<h2><a id="23_Sentinel__73"></a>2.3 Sentinel 式类级降级</h2>
+<h3><a id="1__75"></a>(1) 定义降级类</h3>
+<pre><code class="prism language-java"><span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">DepartServiceFallback</span> <span class="token punctuation">{</span>
+
+    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">boolean</span> <span class="token function">saveFallback</span><span class="token punctuation">(</span><span class="token class-name">DepartVO</span> depart<span class="token punctuation">,</span> <span class="token class-name">Throwable</span> e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token class-name">System</span><span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"getHandle()执行异常 "</span> <span class="token operator">+</span> depart<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token class-name">List</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">DepartVO</span><span class="token punctuation">&gt;</span></span> <span class="token function">listFallback</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token class-name">System</span><span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"listHandle()执行异常 "</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token class-name">DepartVO</span> departVO <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">DepartVO</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token class-name">List</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">DepartVO</span><span class="token punctuation">&gt;</span></span> arrayList <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">ArrayList</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        departVO<span class="token punctuation">.</span><span class="token function">setId</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        departVO<span class="token punctuation">.</span><span class="token function">setName</span><span class="token punctuation">(</span><span class="token string">"no any depart"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        arrayList<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>departVO<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> arrayList<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+<span class="token punctuation">}</span>
+</code></pre>
+<h3><a id="2__DepartController__98"></a>(2) 修改 DepartController 处理器</h3>
+<pre><code class="prism language-java">    <span class="token comment">/**
+     *@SentinelResource注解中指定降级方法和降级方法对应的类
+     */</span>
+    <span class="token annotation punctuation">@SentinelResource</span><span class="token punctuation">(</span>fallback <span class="token operator">=</span> <span class="token string">"saveFallback"</span><span class="token punctuation">,</span> fallbackClass <span class="token operator">=</span> <span class="token class-name">DepartServiceFallback</span><span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span>
+    <span class="token annotation punctuation">@PostMapping</span><span class="token punctuation">(</span><span class="token string">"/save"</span><span class="token punctuation">)</span>
+    <span class="token keyword">public</span> <span class="token keyword">boolean</span> <span class="token function">saveHandle</span><span class="token punctuation">(</span><span class="token annotation punctuation">@RequestBody</span> <span class="token class-name">DepartVO</span> depart<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> departService<span class="token punctuation">.</span><span class="token function">saveDepart</span><span class="token punctuation">(</span>depart<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+    
+    <span class="token annotation punctuation">@SentinelResource</span><span class="token punctuation">(</span>fallback <span class="token operator">=</span> <span class="token string">"listFallback"</span><span class="token punctuation">,</span> fallbackClass <span class="token operator">=</span> <span class="token class-name">DepartServiceFallback</span><span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span>
+    <span class="token annotation punctuation">@GetMapping</span><span class="token punctuation">(</span><span class="token string">"/list"</span><span class="token punctuation">)</span>
+    <span class="token keyword">public</span> <span class="token class-name">List</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">DepartVO</span><span class="token punctuation">&gt;</span></span> <span class="token function">listHandle</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> departService<span class="token punctuation">.</span><span class="token function">listAllDeparts</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+</code></pre>
+<h3><a id="3_117"></a>(3)测试</h3>
+<p>只启动消费者<br>
+<img src="https://img-blog.csdnimg.cn/bf53097289f6480d912e2bbea0af30fd.png" alt="在这里插入图片描述"></p>
+<h2><a id="24_Feign__121"></a>2.4 Feign 式类级降级</h2>
+<h3><a id="1_122"></a>(1)添加依赖</h3>
+<p>消费者端项目中添加依赖</p>
+<pre><code class="prism language-xml">  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">&gt;</span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">&gt;</span></span>com.alibaba.cloud<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">&gt;</span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">&gt;</span></span>spring-cloud-starter-alibaba-sentinel<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">&gt;</span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>version</span><span class="token punctuation">&gt;</span></span>2.2.1.RELEASE<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>version</span><span class="token punctuation">&gt;</span></span>
+      <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">&gt;</span></span>
+</code></pre>
+<h3><a id="2__133"></a>(2) 修改配置文件</h3>
+<pre><code class="prism language-yml"><span class="token key atrule">feign</span><span class="token punctuation">:</span>        
+  <span class="token key atrule">sentinel</span><span class="token punctuation">:</span> <span class="token comment"># 开启sentinel对feign的支持</span>
+    <span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+</code></pre>
+<h3><a id="3__140"></a>(3) 定义降级类</h3>
+<p>在feign对外接口中添加DepartServiceFallback降级类<br>
+降级类实现feign接口，在方法中根据实际业务完成降级业务<br>
+<img src="https://img-blog.csdnimg.cn/760aa64ce5f64c9f8b2df72580e68817.png" alt="在这里插入图片描述"></p>
+<pre><code class="prism language-java"><span class="token comment">// 降级类：实现了Feign接口</span>
+<span class="token annotation punctuation">@Component</span>
+<span class="token comment">//@RequestMapping("/fallback/provider/depart")  // 其开头必须是/fallback</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">DepartServiceFallback</span> <span class="token keyword">implements</span> <span class="token class-name">DepartService</span> <span class="token punctuation">{</span>
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">public</span> <span class="token keyword">boolean</span> <span class="token function">saveDepart</span><span class="token punctuation">(</span><span class="token class-name">DepartVO</span> depart<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token class-name">System</span><span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"执行saveDepart()的服务降级处理方法"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">public</span> <span class="token keyword">boolean</span> <span class="token function">removeDepartById</span><span class="token punctuation">(</span><span class="token keyword">int</span> id<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token class-name">System</span><span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"执行removeDepartById()的服务降级处理方法"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">public</span> <span class="token keyword">boolean</span> <span class="token function">modifyDepart</span><span class="token punctuation">(</span><span class="token class-name">DepartVO</span> depart<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token class-name">System</span><span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"执行modifyDepart()的服务降级处理方法"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">public</span> <span class="token class-name">DepartVO</span> <span class="token function">getDepartById</span><span class="token punctuation">(</span><span class="token keyword">int</span> id<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token class-name">System</span><span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"执行getDepartById()的服务降级处理方法"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token class-name">DepartVO</span> depart <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">DepartVO</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        depart<span class="token punctuation">.</span><span class="token function">setId</span><span class="token punctuation">(</span>id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        depart<span class="token punctuation">.</span><span class="token function">setName</span><span class="token punctuation">(</span><span class="token string">"degrade-feign"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> depart<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">public</span> <span class="token class-name">List</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">DepartVO</span><span class="token punctuation">&gt;</span></span> <span class="token function">listAllDeparts</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token class-name">System</span><span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"执行listAllDeparts()的服务降级处理方法"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+
+</code></pre>
+<h3><a id="4feign_184"></a>(4)修改feign接口</h3>
+<pre><code class="prism language-java"><span class="token comment">//在注解中指定降级类</span>
+<span class="token annotation punctuation">@FeignClient</span><span class="token punctuation">(</span> value<span class="token operator">=</span><span class="token string">"feign-nacos-provider-modules"</span><span class="token punctuation">,</span> path <span class="token operator">=</span> <span class="token string">"/provider/depart"</span><span class="token punctuation">,</span>
+fallback <span class="token operator">=</span> <span class="token class-name">DepartServiceFallback</span><span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span>
+<span class="token keyword">public</span> <span class="token keyword">interface</span> <span class="token class-name">DepartService</span> <span class="token punctuation">{</span>
+    <span class="token annotation punctuation">@PostMapping</span><span class="token punctuation">(</span><span class="token string">"/save"</span><span class="token punctuation">)</span>
+    <span class="token keyword">boolean</span> <span class="token function">saveDepart</span><span class="token punctuation">(</span><span class="token annotation punctuation">@RequestBody</span> <span class="token class-name">DepartVO</span> depart<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token annotation punctuation">@DeleteMapping</span><span class="token punctuation">(</span><span class="token string">"/del/{id}"</span><span class="token punctuation">)</span>
+    <span class="token keyword">boolean</span> <span class="token function">removeDepartById</span><span class="token punctuation">(</span><span class="token annotation punctuation">@PathVariable</span><span class="token punctuation">(</span><span class="token string">"id"</span><span class="token punctuation">)</span> <span class="token keyword">int</span> id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token annotation punctuation">@PutMapping</span><span class="token punctuation">(</span><span class="token string">"/update"</span><span class="token punctuation">)</span>
+    <span class="token keyword">boolean</span> <span class="token function">modifyDepart</span><span class="token punctuation">(</span><span class="token annotation punctuation">@RequestBody</span> <span class="token class-name">DepartVO</span> depart<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token annotation punctuation">@GetMapping</span><span class="token punctuation">(</span><span class="token string">"/get/{id}"</span><span class="token punctuation">)</span>
+    <span class="token class-name">DepartVO</span> <span class="token function">getDepartById</span><span class="token punctuation">(</span><span class="token annotation punctuation">@PathVariable</span><span class="token punctuation">(</span><span class="token string">"id"</span><span class="token punctuation">)</span> <span class="token keyword">int</span> id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token annotation punctuation">@GetMapping</span><span class="token punctuation">(</span><span class="token string">"/list"</span><span class="token punctuation">)</span>
+    <span class="token class-name">List</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">DepartVO</span><span class="token punctuation">&gt;</span></span> <span class="token function">listAllDeparts</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+</code></pre>
+<h3><a id="5_208"></a>(5)测试</h3>
+<p>只启动消费者，模拟生产者异常。访问删除接口。结果发现执行了降级方法<br>
+<img src="https://img-blog.csdnimg.cn/3b91f8d6332e454eba13e04b23cdb491.png" alt="在这里插入图片描述"></p>
+<h1><a id="3_Sentinel_Dashboard_212"></a>3 Sentinel Dashboard</h1>
+<p><a href="https://github.com/alibaba/Sentinel/wiki/%E6%8E%A7%E5%88%B6%E5%8F%B0#sentinel-%E6%8E%A7%E5%88%B6%E5%8F%B0">Sentinel 控制台（官方链接）</a></p>
+<h2><a id="31__215"></a>3.1 简介</h2>
+<p>Sentinel 提供一个轻量级的开源控制台，它提供机器发现以及健康情况管理、监控（单机和集群），规则管理和推送的功能。</p>
+<p>Sentinel 控制台包含如下功能:</p>
+<ul>
+<li><strong>查看机器列表以及健康情况</strong>：收集 Sentinel 客户端发送的心跳包，用于判断机器是否在线。</li>
+<li><strong>监控 (单机和集群聚合)</strong>：通过 Sentinel 客户端暴露的监控 API，定期拉取并且聚合应用监控信息，最终可以实现秒级的实时监控。</li>
+<li><strong>规则管理和推送</strong>：统一管理推送规则。</li>
+<li><strong>鉴权</strong>：生产环境中鉴权非常重要。这里每个开发者需要根据自己的实际情况进行定制。</li>
+</ul>
+<p><strong>注意</strong>：Sentinel 控制台目前仅支持单机部署。Sentinel 控制台项目提供 Sentinel 功能全集示例，不作为开箱即用的生产环境控制台，不提供安全可靠保障。若希望在生产环境使用请根据文档自行进行定制和改造。</p>
+<h2><a id="32__228"></a>3.2 下载</h2>
+<p>直接从官方下载打包好的 Sentinel Dashboard 启动运行</p>
+<p><img src="https://img-blog.csdnimg.cn/99399ce7e2de4dff8c1950c3da672ece.png" alt="在这里插入图片描述"><br>
+<a href="https://github.com/alibaba/spring-cloud-alibaba/wiki/%E7%89%88%E6%9C%AC%E8%AF%B4%E6%98%8E">组件版本关系</a><br>
+Sentinel Dashboard 版本需要和Spring Cloud Alibaba Version对应，项目中Spring Cloud Alibaba Version为2.2.1.RELEASE，我们选用1.7.1以上版本。1.8版本和1.7版本界面变化有些大，选用新一点版本使用<a href="https://github.com/alibaba/Sentinel/releases/tag/v1.8.0">1.8.0下载</a><br>
+<img src="https://img-blog.csdnimg.cn/b4a68ee6fe634866871e5209fdf8cfa0.png" alt="在这里插入图片描述"><br>
+<img src="https://img-blog.csdnimg.cn/d698c625488849d7960df278f1027c5a.png" alt="在这里插入图片描述"></p>
+<h2><a id="33__236"></a>3.3 启动</h2>
+<p>启动  Sentinel  控制台需要   JDK  版本为   1.8  及以上版本<br>
+<img src="https://img-blog.csdnimg.cn/ee04259925914b2c9fedbbf454833a24.png" alt="在这里插入图片描述"></p>
+<pre><code>java -Dserver.port=8888 -Dcsp.sentinel.dashboard.server=localhost:8888 
+-Dproject.name=sentinel-dashboard 
+-Dsentinel.dashboard.auth.username=sentinel 
+-Dsentinel.dashboard.auth.password=sentinel -jar sentinel-dashboard-1.8.0.jar
+</code></pre>
+<p><img src="https://img-blog.csdnimg.cn/cc8d3693e81644b99c06c08cb195356b.png" alt="在这里插入图片描述"></p>
+<h2><a id="34__248"></a>3.4 访问</h2>
+<p>http://localhost:8888/#/login<br>
+<img src="https://img-blog.csdnimg.cn/a7b8653b283a4d49a688c02b3482a19b.png" alt="在这里插入图片描述"></p>
+<p><img src="https://img-blog.csdnimg.cn/475ca071c0c441b8bb53bd209ee4c6f2.png" alt="在这里插入图片描述"></p>
+<h1><a id="4__254"></a>4 服务熔断</h1>
+<h2><a id="41_256"></a>4.1熔断概念</h2>
+<p><a href="https://blog.csdn.net/weixin_43811057/article/details/114838237">服务雪崩和熔断介绍</a></p>
+<p>(1) 服务雪崩<br>
+如果说服务流控是为了在高并发场景下不至于将系统压垮，那么服务熔断则是为了在外部环境不通畅场景下，不至于将系统拖垮，也就是为了防止服务雪崩的发生。<br>
+<img src="https://img-blog.csdnimg.cn/1ebc3806ac154ce98913daffc987c58f.png" alt="在这里插入图片描述"></p>
+<p>在复杂的系统中，经常会出现 A 依赖于 B，B 依赖于  C，C 依赖于  D，……这种依赖将会产生很长的调用链路，这种复杂的调用链路称为 1-&gt;N 的扇出。<br>
+如果在 A 的调用链路上某一个或几个被调用的子服务不可用或延迟较高，则会导致调用A 服务的请求被堵住（等待超时）。堵住的 A 请求会消耗占用系统的线程、IO 等资源，当对A 服务的请求越来越多，占用的计算机资源越来越多的时候，会导致系统瓶颈出现，造成其他的请求同样不可用，最终导致业务系统崩溃，这种现象称为<code>雪崩效应</code>。</p>
+<p>(2) 服务熔断<br>
+<a href="https://github.com/Netflix/Hystrix/wiki">Hystrix官网</a><br>
+为了防止服务雪崩的发生，在发现了对某些资源请求的响应缓慢或调用异常较多时，直接将对这些资源的请求掐断一段时间。而在这段时间内的请求将不再等待超时，而是直接返回事先设定好的降级结果。这些请求将不占用系统资源，从而避免了服务雪崩的发生。这就是服务熔断。</p>
+<h2><a id="42__270"></a>4.2 动态设置</h2>
+<p>对于服务熔断规则，可以通过  Sentinel Dashboard 进行动态设置。</p>
+<h3><a id="421__273"></a>4.2.1 修改处理器类</h3>
+<p>在消费者类处理器上配置降级名称，后续降级名称需要在sentinel dashboard中使用。这样客户端上配置的降级规则才能够知道给谁使用。</p>
+<pre><code class="prism language-java">    <span class="token comment">/**
+     * 定义了降级
+     */</span>
+    <span class="token annotation punctuation">@SentinelResource</span><span class="token punctuation">(</span>value <span class="token operator">=</span> <span class="token string">"slowRequstDegradeRule"</span><span class="token punctuation">,</span>fallback <span class="token operator">=</span> <span class="token string">"getHandleFallback"</span><span class="token punctuation">)</span>
+    <span class="token annotation punctuation">@GetMapping</span><span class="token punctuation">(</span><span class="token string">"/get/{id}"</span><span class="token punctuation">)</span>
+    <span class="token keyword">public</span> <span class="token class-name">DepartVO</span> <span class="token function">getHandle</span><span class="token punctuation">(</span><span class="token annotation punctuation">@PathVariable</span><span class="token punctuation">(</span><span class="token string">"id"</span><span class="token punctuation">)</span> <span class="token keyword">int</span> id<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> departService<span class="token punctuation">.</span><span class="token function">getDepartById</span><span class="token punctuation">(</span>id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+</code></pre>
+<p><img src="https://img-blog.csdnimg.cn/744304c53c2341dabc6e2fef14367504.png" alt="在这里插入图片描述"></p>
+<h3><a id="422__287"></a>4.2.2 修改配置文件</h3>
+<pre><code class="prism language-yml"><span class="token key atrule">spring</span><span class="token punctuation">:</span>
+  <span class="token key atrule">application</span><span class="token punctuation">:</span>
+    <span class="token key atrule">name</span><span class="token punctuation">:</span> feign<span class="token punctuation">-</span>nacos<span class="token punctuation">-</span>consumer  <span class="token comment"># 微服务名称</span>
+  <span class="token key atrule">cloud</span><span class="token punctuation">:</span>
+    <span class="token key atrule">nacos</span><span class="token punctuation">:</span>
+      <span class="token key atrule">discovery</span><span class="token punctuation">:</span>
+        <span class="token key atrule">server-addr</span><span class="token punctuation">:</span> localhost<span class="token punctuation">:</span><span class="token number">8848</span>   <span class="token comment"># nacos discovery地址</span>
+    <span class="token key atrule">sentinel</span><span class="token punctuation">:</span>
+      <span class="token key atrule">transport</span><span class="token punctuation">:</span>
+        <span class="token key atrule">dashboard</span><span class="token punctuation">:</span> localhost<span class="token punctuation">:</span><span class="token number">8888</span>  <span class="token comment"># Sentinel客户端地址</span>
+        <span class="token key atrule">port</span><span class="token punctuation">:</span> <span class="token number">8197</span> <span class="token comment"># 服务和客户端通信端口，在客户端上配置会生效到服务上需要发送请求</span>
+      <span class="token key atrule">eager</span><span class="token punctuation">:</span> <span class="token boolean important">true</span> <span class="token comment"># 开启配置后立即生效</span>
+</code></pre>
+<p><img src="https://img-blog.csdnimg.cn/3332c305b81f4220a39215445873676e.png" alt="在这里插入图片描述"></p>
+<h3><a id="423_sentinel__307"></a>4.2.3 在sentinel 客户端设置降级规则</h3>
+<p>先启动消费者服务，在进入sentinel控制台。<br>
+<img src="https://img-blog.csdnimg.cn/e8dee3da476a4d1894ae1ab74cdef925.png" alt="在这里插入图片描述"></p>
+<h3><a id="424__311"></a>4.2.4 修改提供者工程</h3>
+<p>设置睡眠时间，模拟接口请求慢。设置完成启动提供者</p>
+<pre><code class="prism language-java">    <span class="token annotation punctuation">@GetMapping</span><span class="token punctuation">(</span><span class="token string">"/get/{id}"</span><span class="token punctuation">)</span>
+    <span class="token keyword">public</span> <span class="token class-name">DepartVO</span> <span class="token function">getHandle</span><span class="token punctuation">(</span><span class="token annotation punctuation">@PathVariable</span><span class="token punctuation">(</span><span class="token string">"id"</span><span class="token punctuation">)</span> <span class="token keyword">int</span> id<span class="token punctuation">)</span> <span class="token keyword">throws</span> <span class="token class-name">InterruptedException</span> <span class="token punctuation">{</span>
+        <span class="token class-name">TimeUnit</span><span class="token punctuation">.</span>MILLISECONDS<span class="token punctuation">.</span><span class="token function">sleep</span><span class="token punctuation">(</span><span class="token number">500</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token class-name">DepartVO</span> departVO <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">DepartVO</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        departVO<span class="token punctuation">.</span><span class="token function">setId</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        departVO<span class="token punctuation">.</span><span class="token function">setName</span><span class="token punctuation">(</span><span class="token string">"liming"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> departVO<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+</code></pre>
+<p><img src="https://img-blog.csdnimg.cn/80eabd47cfd14b67bd2a56cad69393a5.png" alt="在这里插入图片描述"></p>
+<h3><a id="425__328"></a>4.2.5 测试</h3>
+<ol>
+<li>单次访问，可以发现能够正常取值。</li>
+</ol>
+<p>http://localhost:8080/consumer/depart/get/1<br>
+<img src="https://img-blog.csdnimg.cn/3be73ec34e0d4801908da6d6929a0433.png" alt="在这里插入图片描述"></p>
+<ol start="2">
+<li>在浏览器中快速按F5不断刷新接口，连续刷新8次<br>
+注意 我们使用的sentinel版本是1.7.1的，这个版本不支持修改比例阈值（默认为1），sentinel 客户端是1.8.0界面上虽然有比例阈值修改，但是不生效的。<br>
+<img src="https://img-blog.csdnimg.cn/681c72d59755433c8969c07836605df6.png" alt="在这里插入图片描述"></li>
+</ol>
+<p>3.紧接着再次刷新接口</p>
+<pre><code>还是返回的降级结果。设置了熔断时长为20s，在这20秒访问会直接走降级逻辑。
+</code></pre>
+<h2><a id="43__343"></a>4.3 熔断策略</h2>
+<h3><a id="1_RT_345"></a>（1）响应时间 RT</h3>
+<p><img src="https://img-blog.csdnimg.cn/b8e7a0b7dfbf4c4685311c5645b57ae9.png" alt="在这里插入图片描述"></p>
+<pre><code>慢调用比。该策略需要设置用于界定慢调用的响应时间阈值 RT（Response Time），
+当请求的响应时间大于该值时，将该请求统计为慢调用。若要发生熔断，
+在 1 秒内收到的请求数 量不能小于“最小请求数”，且慢调用占比不能低于“比例阈值”。
+当触发熔断，则会在“熔断时长”内不再对请求进行处理，即熔断期间再来的请求，
+将直接进行降级响应。
+</code></pre>
+<h3><a id="2_358"></a>（2）异常比</h3>
+<p><img src="https://img-blog.csdnimg.cn/93a54840f8ad432bbd515d7143793c3f.png" alt="在这里插入图片描述"></p>
+<pre><code>异常比。该策略需要设置异常请求在统计时间窗口内所有请求中的占比，异常比率的阈 
+值范围是 [0.0, 1.0]，代表 0% - 100%。当异常请求比例大于该值时则会触发熔断。
+默认情况下，统计时间窗口大小为 1 秒，期间接收到的请求至少 5 个。
+发生熔断后，熔断时长为指定的时长。熔断期间再来的请求，将直接地降级响应。
+</code></pre>
+<h3><a id="3_368"></a>（3）异常数</h3>
+<p><img src="https://img-blog.csdnimg.cn/2fb1962b9a564913a2b40596b7468a9e.png" alt="在这里插入图片描述"></p>
+<pre><code>异常数。该策略需要设置在统计时间窗口内所接收到的异常请求的数量。
+当异常请求数量大于该值时则会触发熔断。默认情况下，统计时间窗口大小为 1 分钟，
+注意，是 1 分钟。发生熔断后，熔断时长为指定的时长。熔断期间再来的请求，
+将直接地降级响应。
+</code></pre>
+<h2><a id="44__378"></a>4.4 代码设置</h2>
+<p>通过  Dashboard 平台进行熔断规则设置，粒度有些粗，有些属性只能通过代码来设置。而代码中的 API，在不同的  Sentinel 版本中，是有所不同的。<br>
+熔断规则直接定义在代码中，当应用启动时完成熔断规则的创建与初始化。这个熔断规则在 Dashboard 中也是可以查看到并且进行编辑的，编辑后以动态编辑的规则为准。</p>
+<h3><a id="_382"></a>添加降级规则配置类</h3>
+<pre><code class="prism language-java"><span class="token annotation punctuation">@Configuration</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> hystrixRuleConfig <span class="token punctuation">{</span>
+
+    <span class="token comment">/**
+     * 初始化生效的降级规则
+     */</span>
+    <span class="token annotation punctuation">@Bean</span>
+    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">initRule</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token class-name">List</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token class-name">DegradeRule</span><span class="token punctuation">&gt;</span></span> rules <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">ArrayList</span><span class="token generics"><span class="token punctuation">&lt;</span><span class="token punctuation">&gt;</span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        rules<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span><span class="token function">slowRequestDegradeRule</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        rules<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span><span class="token function">errorRatioDegradeRule</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        rules<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span><span class="token function">errorCountDegradeRule</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token class-name">DegradeRuleManager</span><span class="token punctuation">.</span><span class="token function">loadRules</span><span class="token punctuation">(</span>rules<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token comment">/**
+     * 慢调用
+     */</span>
+    <span class="token annotation punctuation">@Bean</span>
+    <span class="token keyword">public</span> <span class="token class-name">DegradeRule</span> <span class="token function">slowRequestDegradeRule</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token comment">//定义降级规则</span>
+        <span class="token class-name">DegradeRule</span> degradeRule <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">DegradeRule</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">//指定降级规则名称</span>
+        degradeRule<span class="token punctuation">.</span><span class="token function">setResource</span><span class="token punctuation">(</span><span class="token string">"slowRequestDegradeRule"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">//指定熔断策略为Rt(response time)</span>
+        degradeRule<span class="token punctuation">.</span><span class="token function">setGrade</span><span class="token punctuation">(</span><span class="token class-name">RuleConstant</span><span class="token punctuation">.</span>DEGRADE_GRADE_RT<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">//指定熔断阈值为200ms（请求响应时长大于200ms，统计为慢调用）</span>
+        degradeRule<span class="token punctuation">.</span><span class="token function">setCount</span><span class="token punctuation">(</span><span class="token number">200</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">//指定熔断时长60s</span>
+        degradeRule<span class="token punctuation">.</span><span class="token function">setTimeWindow</span><span class="token punctuation">(</span><span class="token number">60</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">//指定在1秒的统计时间窗内至少要5个请求</span>
+        degradeRule<span class="token punctuation">.</span><span class="token function">setMinRequestAmount</span><span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">//指定若要启动熔断，则在1秒内至少要3次慢请求</span>
+        degradeRule<span class="token punctuation">.</span><span class="token function">setRtSlowRequestAmount</span><span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> degradeRule<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token comment">/**
+     * 异常比
+     */</span>
+    <span class="token annotation punctuation">@Bean</span>
+    <span class="token keyword">public</span> <span class="token class-name">DegradeRule</span> <span class="token function">errorRatioDegradeRule</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token class-name">DegradeRule</span> degradeRule <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">DegradeRule</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">//指定降级规则名称</span>
+        degradeRule<span class="token punctuation">.</span><span class="token function">setResource</span><span class="token punctuation">(</span><span class="token string">"errorRatioDegradeRule"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">//指定熔断策略为异常比</span>
+        degradeRule<span class="token punctuation">.</span><span class="token function">setGrade</span><span class="token punctuation">(</span><span class="token class-name">RuleConstant</span><span class="token punctuation">.</span>DEGRADE_GRADE_EXCEPTION_RATIO<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">//指定熔断阈值为50%</span>
+        degradeRule<span class="token punctuation">.</span><span class="token function">setCount</span><span class="token punctuation">(</span><span class="token number">0.5</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">//指定熔断时长60s</span>
+        degradeRule<span class="token punctuation">.</span><span class="token function">setTimeWindow</span><span class="token punctuation">(</span><span class="token number">60</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">//指定在1秒的统计时间窗内至少要5个请求</span>
+        degradeRule<span class="token punctuation">.</span><span class="token function">setMinRequestAmount</span><span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> degradeRule<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token comment">/**
+     * 异常数
+     */</span>
+    <span class="token annotation punctuation">@Bean</span>
+    <span class="token keyword">public</span> <span class="token class-name">DegradeRule</span> <span class="token function">errorCountDegradeRule</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token class-name">DegradeRule</span> degradeRule <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">DegradeRule</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        degradeRule<span class="token punctuation">.</span><span class="token function">setResource</span><span class="token punctuation">(</span><span class="token string">"errorCountDegradeRule"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">//指定熔断策略为异常数</span>
+        degradeRule<span class="token punctuation">.</span><span class="token function">setGrade</span><span class="token punctuation">(</span><span class="token class-name">RuleConstant</span><span class="token punctuation">.</span>DEGRADE_GRADE_EXCEPTION_COUNT<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">//指定熔断阈值为3</span>
+        degradeRule<span class="token punctuation">.</span><span class="token function">setCount</span><span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">//指定熔断时长60s</span>
+        degradeRule<span class="token punctuation">.</span><span class="token function">setTimeWindow</span><span class="token punctuation">(</span><span class="token number">60</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment">//指定在1秒的统计时间窗内至少要5个请求</span>
+        degradeRule<span class="token punctuation">.</span><span class="token function">setMinRequestAmount</span><span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> degradeRule<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+
+
+</code></pre>
+<h3><a id="_462"></a>使用降级</h3>
+<p>启动消费者服务后我们观察一下控制台，发现三个降级规则都已成功注册。<br>
+<img src="https://img-blog.csdnimg.cn/be86128f209d44b888fb20b94fb17f0a.png" alt="无">测试异常<img src="https://img-blog.csdnimg.cn/8f96e4337f8343648e30e926064d9d79.png" alt="在这里插入图片描述"><br>
+连续发送三次请求<br>
+<img src="https://img-blog.csdnimg.cn/0c00c033a2ee4437aa2ab5dbc1933f0c.png" alt="在这里插入图片描述"></p>
+</div>
+</body>
+
+</html>
