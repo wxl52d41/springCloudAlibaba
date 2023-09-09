@@ -2,6 +2,7 @@ package com.example.providermodules.controller;
 
 
 import com.example.vo.DepartVO;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -21,6 +22,12 @@ public class DepartController {
 
     @DeleteMapping("/del/{id}")
     public boolean deleteHandle(@PathVariable("id") int id) {
+        try {
+            System.out.println("我在模拟超时");
+            Thread.sleep(7000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         System.out.println("id = " + id);
         return true;
     }
@@ -33,13 +40,8 @@ public class DepartController {
 
     @GetMapping("/get/{id}")
     public DepartVO getHandle(@PathVariable("id") int id) {
-        try {
-            System.out.println("我在模拟超时");
-            Thread.sleep(7000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        return new DepartVO(8082,"liming");
+
+        return new DepartVO(8085, "liming");
     }
 
     @GetMapping("/list")

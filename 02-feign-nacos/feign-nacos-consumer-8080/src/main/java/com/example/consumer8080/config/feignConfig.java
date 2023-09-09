@@ -17,7 +17,7 @@ public class feignConfig {
     /**
      *  随机策略
      */
-    @Bean
+//    @Bean
     public IRule loadBalanceRule() {
         return new RandomRule();
     }

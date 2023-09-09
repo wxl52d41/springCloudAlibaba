@@ -7,16 +7,25 @@ spring:
     nacos:
       discovery:
         server-addr: localhost:8848   # nacos discovery地址
-feign:
-  client:
-    config:
-      default:
-        connectTimeout: 5000   # 设置Feign客户端连接提供者的超时时限
-        readTimeout: 5000  # 设置Feign从请求发出到接收到提供者的响应，这段时间的超时时限
-# 配置提供者负载均衡策略
-#feign-nacos-provider-modules:  #提供者服务名称
-#  ribbon: # 指定要使用的负载均衡策略
-#    NFLoadBalancerRuleClassName: com.netflix.loadbalancer.RandomRule #采用随机策略
+#feign:
+#  client:
+#    config:
+#      default:
+#        connectTimeout: 5000   # 设置Feign客户端连接提供者的超时时限
+#        readTimeout: 5000  # 设置Feign从请求发出到接收到提供者的响应，这段时间的超时时限
+
+#针对的被调⽤⽅微服务名称,不加就是全局⽣效
+feign-nacos-provider-modules:  #提供者服务名称
+  ribbon: # 指定要使用的负载均衡策略
+    NFLoadBalancerRuleClassName: com.netflix.loadbalancer.RoundRobinRule #采用轮询策略
+    ConnectTimeout: 2000  #请求连接超时时间
+    ReadTimeout: 5000  #请求处理超时时间
+    OkToRetryOnAllOperations: true  #对所有操作都进⾏重试
+    ####根据如上配置，当访问到故障请求的时候，它会再尝试访问⼀次当前实例（次数由MaxAutoRetries配置），
+    ####如果不⾏，就换⼀个实例进⾏访问，如果还不⾏，再换⼀次实例访问（更换次数由MaxAutoRetriesNextServer配置），
+    ####如果依然不⾏，返回失败信息
+    MaxAutoRetries: 2 #对当前选中实例重试次数，不包括第⼀次调⽤
+    MaxAutoRetriesNextServer: 2 #切换实例的重试次数
 logging:
   level:
     com.example: debug #设置日志级别为debug
